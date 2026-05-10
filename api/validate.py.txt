@@ -1,0 +1,37 @@
+from http.server import BaseHTTPRequestHandler
+import requests
+import json
+from urllib.parse import urlparse, parse_qs
+
+class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        # 1. Get the email from your Colab request
+        query = urlparse(self.path).query
+        params = parse_qs(query)
+        email = params.get('email', [None])[0]
+
+        if not email:
+            self.send_response(400)
+            self.end_headers()
+            self.wfile.write(b"Missing email parameter")
+            return
+
+        # 2. The API settings (Your specific target)
+        url = "https://www.startuphub.ai/api/email-validator/validate"
+        headers = {"content-type": "application/json", "user-agent": "Mozilla/5.0"}
+        # IMPORTANT: Replace PASTE_YOUR_FULL_TOKEN_HERE with your actual token
+        cookies = {"sb-bsmromhjxdnndenlrpgx-auth-token": "PASTE_YOUR_FULL_TOKEN_HERE"}
+
+        try:
+            # This is the actual validation request happening from a Vercel IP
+            res = requests.post(url, json={"email": email}, headers=headers, cookies=cookies)
+            result = res.json()
+            result['email'] = email
+        except Exception as e:
+            result = {"email": email, "status": "error", "message": str(e)}
+
+        # 3. Send the result back to Colab
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(result).encode())
